@@ -1,13 +1,11 @@
 # Dockerfile for Auto Deploy Server
 FROM node:20-alpine AS base
 
-# Install dependencies only when needed
+# 1. Install dependencies
 FROM base AS deps
-# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install dependencies based on the preferred package manager
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 RUN npm cache clean --force && rm -f package-lock.json
 RUN \
@@ -16,17 +14,15 @@ RUN \
   else npm install; \
   fi
 
-
-# Rebuild the source code only when needed
+# 2. Rebuild the source code
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma Client
-RUN npx prisma generate
+# บังคับใช้ Prisma 6.1.0 ในช่วง Build
+RUN npx prisma@6.1.0 generate
 
-# Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED 1
 RUN \
   if [ -f yarn.lock ]; then yarn run build; \
@@ -35,9 +31,12 @@ RUN \
   else echo "Lockfile not found." && exit 1; \
   fi
 
-# Production image, copy all the files and run next
+# 3. Production image
 FROM base AS runner
 WORKDIR /app
+
+# Install SSH client tools and git for deployment functionality
+RUN apk add --no-cache openssh-client sshpass git
 
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
@@ -45,30 +44,32 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy public assets
+# Create SSH directory and known_hosts file with proper permissions
+RUN mkdir -p /home/nextjs/.ssh && \
+    touch /home/nextjs/.ssh/known_hosts && \
+    chown -R nextjs:nodejs /home/nextjs/.ssh && \
+    chmod 700 /home/nextjs/.ssh && \
+    chmod 600 /home/nextjs/.ssh/known_hosts
+
 COPY --from=builder /app/public ./public
+RUN mkdir .next && chown nextjs:nodejs .next
 
-# Set the correct permission for prerender cache
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
-
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
+# Copy standalone build
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Prisma files
+# Copy Prisma files for Runtime
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 
+# Create and set permissions for temp directory
+RUN mkdir -p /app/temp && chown -R nextjs:nodejs /app/temp
+
 USER nextjs
-
 EXPOSE 3000
-
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-# server.js is created by next build from the standalone output
-# https://nextjs.org/docs/pages/api-reference/next-config-js/output
+# ใช้ Command จาก docker-compose.yml แทนเพื่อให้ทำ Migrate ได้
 CMD ["node", "server.js"]

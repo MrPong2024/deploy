@@ -194,22 +194,30 @@ async function executeRemoteCommand(command: string, targetDockerHost?: any): Pr
   
   console.log(`🔗 Executing remote command on ${dockerUser}@${dockerHost}`)
   
+  // ตรวจสอบว่ามี sshpass หรือไม่ (สำหรับ password authentication)
+  let hasSshpass = false
+  try {
+    await execAsync('sshpass -V')
+    hasSshpass = true
+  } catch (e) {
+    // sshpass ไม่มี
+  }
+
   let sshCommand
-  if (dockerPassword) {
-    // Check for plink (Windows)
+  if (dockerPassword && hasSshpass) {
+    // ใช้ sshpass สำหรับ password authentication
+    sshCommand = `sshpass -p "${dockerPassword}" ssh -o StrictHostKeyChecking=no ${dockerUser}@${dockerHost} "${command}"`
+  } else if (dockerPassword && !hasSshpass) {
+    // สำหรับ Windows - ลองใช้ plink (PuTTY) หรือวิธีอื่น
     try {
       await execAsync('plink -V')
-      // Cache host key first
-      try {
-        await execAsync(`echo y | plink -ssh ${dockerUser}@${dockerHost} -pw ${dockerPassword} exit`, { timeout: 10000 })
-      } catch (e) {
-        // ignore error from host key caching
-      }
-      sshCommand = `plink -ssh -batch ${dockerUser}@${dockerHost} -pw ${dockerPassword} "${command}"`
+      sshCommand = `echo y | plink -ssh -l ${dockerUser} -pw ${dockerPassword} ${dockerHost} "${command}"`
     } catch (e) {
-      throw new Error('SSH password authentication not available. Please install PuTTY (plink).')
+      // ถ้าไม่มี plink ให้แนะนำวิธีแก้
+      throw new Error(`SSH password authentication not available. Please:\n1. Install PuTTY (plink command)\n2. Or setup SSH key authentication\n3. Or use WSL with sshpass\nSee Setup page for instructions.`)
     }
   } else {
+    // ใช้ SSH key authentication
     sshCommand = `ssh -o StrictHostKeyChecking=no ${dockerUser}@${dockerHost} "${command}"`
   }
   

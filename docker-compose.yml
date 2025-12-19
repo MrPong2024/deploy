@@ -18,19 +18,20 @@ services:
     networks:
       - autodeploy-network
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro  # For Docker-in-Docker
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./uploads:/app/uploads
       - ./logs:/app/logs
-      - ~/.ssh:/home/nextjs/.ssh:ro  # For SSH access to remote Docker hosts
+      - ~/.ssh:/home/nextjs/.ssh:ro
+    # ปรับ Healthcheck ให้เช็คหน้า Home ถ้าคุณไม่มี /api/health
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
+    # บังคับใช้ Prisma 6.1.0 เพื่อไม่ให้ไปโหลด v7 มาตอนรัน
     command: >
       sh -c "
-        npx prisma migrate deploy &&
-        npx prisma db seed &&
+        npx prisma@6.1.0 migrate deploy &&
         node server.js
       "
 
