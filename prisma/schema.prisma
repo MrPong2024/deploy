@@ -5,8 +5,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"  // <--- แก้ตรงนี้ครับ
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
 }
 
 model User {
