@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Auto Deploy Application
   app:

@@ -1,5 +1,5 @@
 # Dockerfile for Auto Deploy Server
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
