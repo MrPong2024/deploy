@@ -17,7 +17,7 @@ async function testConnection(host: string, user: string, password?: string): Pr
       // ตรวจสอบว่ามี sshpass หรือไม่ (สำหรับ Linux/Mac)
       try {
         await execAsync('sshpass -V')
-        sshCommand = `sshpass -p "${password}" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${user}@${host} "echo 'Connection OK'"`
+        sshCommand = `sshpass -p "${password}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 ${user}@${host} "echo 'Connection OK'"`
       } catch (e) {
         // ลองใช้ plink (PuTTY) สำหรับ Windows
         try {
@@ -37,7 +37,7 @@ async function testConnection(host: string, user: string, password?: string): Pr
       }
     } else {
       // ใช้ SSH key authentication
-      sshCommand = `ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${user}@${host} "echo 'Connection OK'"`
+      sshCommand = `ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 ${user}@${host} "echo 'Connection OK'"`
     }
     
     const { stdout } = await execAsync(sshCommand, { timeout: 15000 })

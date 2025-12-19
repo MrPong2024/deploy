@@ -122,7 +122,7 @@ async function executeRemoteCommand(command: string, targetDockerHost?: any): Pr
 
     if (hasSshpass) {
       // ใช้ sshpass สำหรับ password authentication
-      sshCommand = `sshpass -p "${dockerPassword}" ssh -o StrictHostKeyChecking=no ${dockerUser}@${dockerHost} "${command}"`
+      sshCommand = `sshpass -p "${dockerPassword}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${dockerUser}@${dockerHost} "${command}"`
     } else {
       // สำหรับ Windows - ลองใช้ plink (PuTTY) หรือวิธีอื่น
       try {
@@ -137,7 +137,7 @@ async function executeRemoteCommand(command: string, targetDockerHost?: any): Pr
       }
     }
   } else {
-    sshCommand = `ssh -o StrictHostKeyChecking=no ${dockerUser}@${dockerHost} "${command}"`
+    sshCommand = `ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${dockerUser}@${dockerHost} "${command}"`
   }
   
   try {

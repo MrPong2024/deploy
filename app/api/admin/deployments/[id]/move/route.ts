@@ -178,7 +178,7 @@ async function executeRemoteCommand(command: string, dockerHost: any): Promise<s
   if (password) {
     try {
       await execAsync('sshpass -V')
-      sshCommand = `sshpass -p "${password}" ssh -o StrictHostKeyChecking=no ${user}@${host} "${command}"`
+      sshCommand = `sshpass -p "${password}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${user}@${host} "${command}"`
     } catch (e) {
       try {
         await execAsync('plink -V')
@@ -188,7 +188,7 @@ async function executeRemoteCommand(command: string, dockerHost: any): Promise<s
       }
     }
   } else {
-    sshCommand = `ssh -o StrictHostKeyChecking=no ${user}@${host} "${command}"`
+    sshCommand = `ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${user}@${host} "${command}"`
   }
   
   const { stdout } = await execAsync(sshCommand)
