@@ -1,0 +1,121 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"  // <--- แก้ตรงนี้ครับ
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  email     String?  // Optional initially
+  firstName String?  // Optional initially
+  lastName  String?  // Optional initially
+  password  String
+  role      String   @default("user")
+  isApproved Boolean @default(true)  // Existing users approved by default
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  deployments Deployment[]
+  databaseInstances DatabaseInstance[]
+} 
+
+model Deployment {
+  id            String   @id @default(cuid())
+  projectName   String
+  gitUrl        String
+  status        String   @default("pending") // pending, building, running, failed, stopped
+  port          Int?     // External port
+  internalPort  Int?     // Internal application port
+  containerName String?
+  imageName     String?
+  deployUrl     String?
+  errorMessage  String?
+  
+  // Git tracking
+  lastCommitHash String?
+  lastUpdated    DateTime?
+  
+  // User relationship
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Docker Host relationship
+  hostId        String?
+  dockerHost    DockerHost? @relation("HostDeployments", fields: [hostId], references: [id])
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([userId])
+} 
+
+model DockerHost {
+  id          String   @id @default(cuid())
+  name        String   // ชื่อเรียก เช่น "Server-1", "Production-Server"
+  host        String   // IP หรือ hostname เช่น "192.168.1.41"
+  user        String   // SSH username
+  password    String?  // SSH password (optional, ถ้าใช้ key)
+  isActive    Boolean  @default(true)
+  description String?  // คำอธิบายเพิ่มเติม
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  deployments Deployment[] @relation("HostDeployments")
+  
+  @@unique([host, user])
+}
+
+model DatabaseServer {
+  id          String   @id @default(cuid())
+  name        String   // ชื่อเรียก เช่น "Main DB Server", "Development DB"
+  host        String   // IP หรือ hostname
+  port        Int      @default(3306)  // Port ของ Database (default MySQL)
+  dbType      String   @default("mysql")  // mysql, postgresql, etc.
+  rootUser    String   // Root username สำหรับสร้าง user/database
+  rootPass    String   // Root password
+  isActive    Boolean  @default(true)
+  description String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  databaseInstances DatabaseInstance[]
+  
+  @@unique([host, port])
+}
+
+model DatabaseInstance {
+  id           String   @id @default(cuid())
+  databaseName String   // ชื่อ database ที่ user ขอ
+  dbUser       String   // username ที่สร้างให้ user
+  dbPassword   String   // password ที่สร้างให้ user
+  status       String   @default("pending")  // pending, active, failed, suspended
+  
+  // User relationship
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Database Server relationship  
+  serverId     String
+  server       DatabaseServer @relation(fields: [serverId], references: [id])
+  
+  // Connection details
+  connectionString String?  // Generated connection string
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@unique([serverId, databaseName])
+  @@unique([serverId, dbUser])
+  @@index([userId])
+}

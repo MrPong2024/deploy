@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # Auto Deploy Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: autodeploy-app
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://root:pg312DB@192.168.1.39:5432/depoyDB?schema=public
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=your-super-secret-key-change-this-in-production-please-make-it-long-and-random
+      - DOCKER_HOST=192.168.1.41
+      - DOCKER_USER=pong
+    ports:
+      - "3000:3000"
+    networks:
+      - autodeploy-network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # For Docker-in-Docker
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      - ~/.ssh:/home/nextjs/.ssh:ro  # For SSH access to remote Docker hosts
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: >
+      sh -c "
+        npx prisma migrate deploy &&
+        npx prisma db seed &&
+        node server.js
+      "
+
+networks:
+  autodeploy-network:
+    driver: bridge
